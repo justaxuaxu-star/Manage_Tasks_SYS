@@ -1,0 +1,3 @@
+fastapi-vue3-demo/venv/
+**/__pycache__/
+*.pyc
