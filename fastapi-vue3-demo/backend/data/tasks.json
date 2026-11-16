@@ -1,0 +1,102 @@
+[
+  {
+    "title": "季度经营分析报告",
+    "description": "汇总各业务线收入、成本与风险，输出管理层可读的季度结论。",
+    "completed": true,
+    "status": "completed",
+    "priority": "high",
+    "assignee": "林晓晨",
+    "department": "运营部",
+    "due_date": "2026-11-12"
+  },
+  {
+    "title": "客户门户改版评审",
+    "description": "确认信息架构、关键路径和上线范围，冻结本迭代评审意见。",
+    "completed": false,
+    "status": "in_progress",
+    "priority": "urgent",
+    "assignee": "周予安",
+    "department": "产品部",
+    "due_date": "2026-11-17"
+  },
+  {
+    "title": "权限中心接口联调",
+    "description": "打通角色、数据范围和审计日志接口，补齐异常码说明。",
+    "completed": false,
+    "status": "pending",
+    "priority": "high",
+    "assignee": "陈可",
+    "department": "研发部",
+    "due_date": "2026-11-19"
+  },
+  {
+    "title": "供应商对账流程优化",
+    "description": "把月结对账从邮件往来改为系统内确认，减少漏单。",
+    "completed": false,
+    "status": "review",
+    "priority": "medium",
+    "assignee": "赵启明",
+    "department": "综合部",
+    "due_date": "2026-11-18"
+  },
+  {
+    "title": "新员工入职清单",
+    "description": "整理账号、设备、权限和导师安排，形成可复用清单。",
+    "completed": false,
+    "status": "pending",
+    "priority": "low",
+    "assignee": "苏晚",
+    "department": "综合部",
+    "due_date": "2026-11-25"
+  },
+  {
+    "title": "移动端任务提醒方案",
+    "description": "定义站内信、邮件和截止日前提醒的触发规则。",
+    "completed": false,
+    "status": "in_progress",
+    "priority": "medium",
+    "assignee": "林晓晨",
+    "department": "产品部",
+    "due_date": "2026-11-21"
+  },
+  {
+    "title": "数据看板指标口径对齐",
+    "description": "统一完成率、逾期率和在办量的统计口径。",
+    "completed": false,
+    "status": "review",
+    "priority": "high",
+    "assignee": "周予安",
+    "department": "运营部",
+    "due_date": "2026-11-16"
+  },
+  {
+    "title": "生产环境发布检查单",
+    "description": "核对迁移、回滚、监控告警和值班人，发布前逐项勾选。",
+    "completed": true,
+    "status": "completed",
+    "priority": "urgent",
+    "assignee": "陈可",
+    "department": "研发部",
+    "due_date": "2026-11-10"
+  },
+  {
+    "title": "合同归档补录",
+    "description": "补齐第三季度已签署合同的扫描件、编号和归档位置。",
+    "completed": false,
+    "status": "pending",
+    "priority": "medium",
+    "assignee": "赵启明",
+    "department": "综合部",
+    "due_date": "2026-11-13"
+  },
+  {
+    "title": "视觉规范抽检",
+    "description": "抽查最近上线页面的字体、间距和状态色是否符合规范。",
+    "completed": false,
+    "status": "pending",
+    "priority": "low",
+    "assignee": "苏晚",
+    "department": "设计部",
+    "due_date": "2026-11-27"
+  }
+]
