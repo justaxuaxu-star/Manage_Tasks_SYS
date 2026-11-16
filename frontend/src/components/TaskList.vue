@@ -1,188 +1,178 @@
+<script setup>
+import { computed, ref } from 'vue'
+import { removeTask, updateTask } from '../api/tasks'
+import { useTasks } from '../composables/useTasks'
+import { notify, openEdit } from '../store'
+import {
+  ASSIGNEES,
+  PRIORITIES,
+  STATUSES,
+  avatarColor,
+  avatarText,
+  formatDue,
+  isOverdue,
+  priorityLabel,
+  priorityRank,
+  statusLabel,
+  statusRank,
+  taskCode,
+  toPayload,
+} from '../taskMeta'
+
+const { tasks, loading, error } = useTasks()
+const keyword = ref('')
+const statusFilter = ref('all')
+const priorityFilter = ref('all')
+const ownerFilter = ref('all')
+const sortBy = ref('priority')
+const confirmingId = ref(null)
+
+const owners = computed(() => {
+  const values = new Set(ASSIGNEES)
+  tasks.value.forEach((task) => values.add(task.assignee))
+  return [...values]
+})
+
+const visible = computed(() => {
+  const text = keyword.value.trim().toLowerCase()
+  return tasks.value
+    .filter((task) => {
+      const haystack = `${task.title} ${task.description} ${task.assignee} ${task.department}`.toLowerCase()
+      const matchesText = !text || haystack.includes(text)
+      const matchesStatus = statusFilter.value === 'all' || task.status === statusFilter.value
+      const matchesPriority = priorityFilter.value === 'all' || task.priority === priorityFilter.value
+      const matchesOwner = ownerFilter.value === 'all' || task.assignee === ownerFilter.value
+      return matchesText && matchesStatus && matchesPriority && matchesOwner
+    })
+    .sort((a, b) => {
+      if (sortBy.value === 'due') return (a.due_date || '9999').localeCompare(b.due_date || '9999')
+      if (sortBy.value === 'status') return statusRank(a.status) - statusRank(b.status)
+      return priorityRank(a.priority) - priorityRank(b.priority)
+    })
+})
+
+const filtering = computed(() => {
+  return keyword.value || statusFilter.value !== 'all' || priorityFilter.value !== 'all' || ownerFilter.value !== 'all'
+})
+
+function clearFilters() {
+  keyword.value = ''
+  statusFilter.value = 'all'
+  priorityFilter.value = 'all'
+  ownerFilter.value = 'all'
+}
+
+async function changeStatus(task, status) {
+  const previous = { ...task }
+  task.status = status
+  task.completed = status === 'completed'
+  try {
+    await updateTask(task.id, toPayload(task))
+    notify(`已更新为${statusLabel(status)}`)
+  } catch (err) {
+    console.error(err)
+    Object.assign(task, previous)
+    notify('状态更新失败', 'err')
+  }
+}
+
+async function remove(task) {
+  if (confirmingId.value !== task.id) {
+    confirmingId.value = task.id
+    return
+  }
+  try {
+    await removeTask(task.id)
+    tasks.value = tasks.value.filter((item) => item.id !== task.id)
+    notify('任务已删除')
+  } catch (err) {
+    console.error(err)
+    notify('删除失败', 'err')
+  } finally {
+    confirmingId.value = null
+  }
+}
+</script>
+
 <template>
-    <div class="task-list">
-      <h1>任务列表</h1>
-      <div class="task-form">
-        <input v-model="newTask.title" placeholder="任务标题" />
-        <textarea v-model="newTask.description" placeholder="任务描述"></textarea>
-        <button @click="addTask">添加任务</button>
-      </div>
-  
-      <div v-if="loading">加载中...</div>
-      <div v-else>
-        <div v-for="task in tasks" :key="task.id" class="task-item">
-          <h3>{{ task.title }} 
-            <span :class="['status', {completed: task.completed}]">
-              {{ task.completed ? '已完成' : '未完成' }}
-            </span>
-          </h3>
-          <p>{{ task.description }}</p>
-          <div class="actions">
-            <button @click="toggleTask(task)" :class="{complete: !task.completed, undo: task.completed}">
-              {{ task.completed ? '撤销' : '完成' }}
-            </button>
-            <button @click="deleteTask(task.id)" class="delete">删除</button>
-          </div>
-        </div>
-      </div>
-  
-      <div class="back-link">
-        <router-link to="/">返回首页</router-link>
-      </div>
+  <div class="toolbar">
+    <input v-model="keyword" class="search" type="search" placeholder="搜索标题、说明、负责人或部门" />
+    <select v-model="statusFilter" class="select" aria-label="按状态筛选">
+      <option value="all">全部状态</option>
+      <option v-for="item in STATUSES" :key="item.value" :value="item.value">{{ item.label }}</option>
+    </select>
+    <select v-model="priorityFilter" class="select" aria-label="按优先级筛选">
+      <option value="all">全部优先级</option>
+      <option v-for="item in PRIORITIES" :key="item.value" :value="item.value">{{ item.label }}</option>
+    </select>
+    <select v-model="ownerFilter" class="select" aria-label="按负责人筛选">
+      <option value="all">全部负责人</option>
+      <option v-for="name in owners" :key="name" :value="name">{{ name }}</option>
+    </select>
+    <select v-model="sortBy" class="select" aria-label="排序">
+      <option value="priority">按优先级</option>
+      <option value="due">按截止日期</option>
+      <option value="status">按状态</option>
+    </select>
+    <button v-if="filtering" class="btn" type="button" @click="clearFilters">清空筛选</button>
+  </div>
+
+  <section v-if="loading" class="panel skeleton"><i></i><i></i><i></i></section>
+  <section v-else-if="error" class="panel error-box">{{ error }}</section>
+  <section v-else class="panel">
+    <div class="panel-head">
+      <h2>任务台账</h2>
+      <span class="muted">显示 {{ visible.length }} / {{ tasks.length }}</span>
     </div>
-  </template>
-  <script>
-  import axios from 'axios'
-  
-  const API_BASE_URL = 'http://localhost:8000'
-  
-  export default {
-    name: 'TaskList',
-    data() {
-      return {
-        tasks: [],
-        newTask: {
-          title: '',
-          description: ''
-        },
-        loading: true
-      }
-    },
-    async mounted() {
-      await this.fetchTasks()
-    },
-    methods: {
-      async fetchTasks() {
-        try {
-          const response = await axios.get(`${API_BASE_URL}/tasks`)
-          this.tasks = response.data
-          this.loading = false
-        } catch (error) {
-          console.error('获取任务失败:', error)
-          this.loading = false
-        }
-      },
-  
-      async addTask() {
-        if (!this.newTask.title.trim()) return
-  
-        try {
-          const response = await axios.post(`${API_BASE_URL}/tasks`, this.newTask)
-          this.tasks.push(response.data)
-          this.newTask = { title: '', description: '' }
-        } catch (error) {
-          console.error('添加任务失败:', error)
-        }
-      },
-  
-      async toggleTask(task) {
-        try {
-          const updatedTask = {
-            ...task,
-            completed: !task.completed
-          }
-          await axios.put(`${API_BASE_URL}/tasks/${task.id}`, updatedTask)
-          task.completed = !task.completed
-        } catch (error) {
-          console.error('更新任务失败:', error)
-        }
-      },
-  
-      async deleteTask(id) {
-        try {
-          await axios.delete(`${API_BASE_URL}/tasks/${id}`)
-          this.tasks = this.tasks.filter(task => task.id !== id)
-        } catch (error) {
-          console.error('删除任务失败:', error)
-        }
-      }
-    }
-  }
-  </script>
-  <style scoped>
-  .task-list {
-    max-width: 800px;
-    margin: 0 auto;
-    padding: 20px;
-  }
-  
-  .task-form {
-    margin-bottom: 30px;
-    padding: 20px;
-    background-color: #f5f5f5;
-    border-radius: 4px;
-  }
-  
-  .task-form input,
-  .task-form textarea {
-    width: 100%;
-    margin-bottom: 10px;
-    padding: 8px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-  }
-  
-  .task-form button {
-    background-color: #42b983;
-    color: white;
-    border: none;
-    padding: 10px 20px;
-    border-radius: 4px;
-    cursor: pointer;
-  }
-  
-  .task-item {
-    border: 1px solid #ddd;
-    padding: 15px;
-    margin-bottom: 15px;
-    border-radius: 4px;
-  }
-  
-  .status {
-    font-size: 0.8em;
-    padding: 2px 6px;
-    border-radius: 4px;
-    background-color: #f0ad4e;
-    color: white;
-  }
-  
-  .status.completed {
-    background-color: #5cb85c;
-  }
-  
-  .actions {
-    margin-top: 10px;
-  }
-  
-  .actions button {
-    margin-right: 10px;
-    padding: 5px 10px;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-  }
-  
-  .complete {
-    background-color: #5cb85c;
-    color: white;
-  }
-  
-  .undo {
-    background-color: #f0ad4e;
-    color: white;
-  }
-  
-  .delete {
-    background-color: #d9534f;
-    color: white;
-  }
-  
-  .back-link {
-    margin-top: 20px;
-  }
-  
-  .back-link a {
-    color: #42b983;
-    text-decoration: none;
-  }
-  </style>
-  
+    <p v-if="!visible.length" class="empty">没有符合条件的任务。</p>
+    <div v-else class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>编号</th>
+            <th>任务</th>
+            <th>优先级</th>
+            <th>状态</th>
+            <th>负责人</th>
+            <th>部门</th>
+            <th>截止日期</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="task in visible" :key="task.id">
+            <td class="muted">{{ taskCode(task.id) }}</td>
+            <td class="task-title">
+              <button class="title-btn" type="button" @click="openEdit(task)">{{ task.title }}</button>
+              <p class="clamp">{{ task.description || '暂无说明' }}</p>
+            </td>
+            <td><span class="tag" :class="task.priority">{{ priorityLabel(task.priority) }}</span></td>
+            <td>
+              <select :value="task.status" class="select" aria-label="更改状态" @change="changeStatus(task, $event.target.value)">
+                <option v-for="item in STATUSES" :key="item.value" :value="item.value">{{ item.label }}</option>
+              </select>
+            </td>
+            <td>
+              <span class="person">
+                <span class="avatar" :style="{ background: avatarColor(task.assignee) }">{{ avatarText(task.assignee) }}</span>
+                {{ task.assignee }}
+              </span>
+            </td>
+            <td>{{ task.department }}</td>
+            <td>
+              <span class="tag" :class="{ overdue: isOverdue(task) }">{{ formatDue(task) }}</span>
+            </td>
+            <td>
+              <div class="actions">
+                <button class="btn tiny" type="button" @click="openEdit(task)">编辑</button>
+                <button class="btn tiny danger" type="button" @click="remove(task)">
+                  {{ confirmingId === task.id ? '确认删除' : '删除' }}
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</template>
