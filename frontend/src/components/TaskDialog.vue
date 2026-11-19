@@ -3,6 +3,9 @@ import { onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { createTask, removeTask, updateTask } from '../api/tasks'
 import { bumpTasks, closeDrawer, notify, store } from '../store'
 import { ASSIGNEES, DEPARTMENTS, PRIORITIES, STATUSES, toPayload } from '../taskMeta'
+import { hasPermission } from '../stores/auth'
+
+const canDelete = hasPermission('task:delete')
 
 const saving = ref(false)
 const confirming = ref(false)
@@ -153,7 +156,7 @@ async function remove() {
         </button>
       </form>
       <footer>
-        <button v-if="store.editing" class="btn danger" type="button" :disabled="saving" @click="remove">
+        <button v-if="store.editing && canDelete" class="btn danger" type="button" :disabled="saving" @click="remove">
           {{ confirming ? '确认删除' : '删除任务' }}
         </button>
         <span v-else class="muted">保存后会出现在工作台、台账和看板中。</span>

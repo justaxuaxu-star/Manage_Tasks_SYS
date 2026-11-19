@@ -6,10 +6,12 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "models:ruyi": "node scripts/download-ruyi-glb.mjs"
   },
   "dependencies": {
     "axios": "^1.21.1",
+    "three": "^0.187.0",
     "vue": "^3.5.44",
     "vue-router": "^4.6.5"
   },

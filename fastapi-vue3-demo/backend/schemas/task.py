@@ -15,3 +15,5 @@ class Task(BaseModel):
     assignee: str = "未分配"
     department: str = "综合部"
     due_date: Optional[str] = None
+    created_by_id: Optional[int] = None
+    assignee_user_id: Optional[int] = None

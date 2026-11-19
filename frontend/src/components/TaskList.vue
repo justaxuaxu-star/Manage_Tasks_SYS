@@ -1,8 +1,13 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onUnmounted, ref, watch } from 'vue'
 import { removeTask, updateTask } from '../api/tasks'
 import { useTasks } from '../composables/useTasks'
-import { notify, openEdit } from '../store'
+import { bumpTasks, notify, openEdit } from '../store'
+import { hasPermission } from '../stores/auth'
+
+const canEdit = hasPermission('task:update')
+const canDelete = hasPermission('task:delete')
+const canChangeStatus = hasPermission('task:change_status')
 import {
   ASSIGNEES,
   PRIORITIES,
@@ -25,7 +30,8 @@ const statusFilter = ref('all')
 const priorityFilter = ref('all')
 const ownerFilter = ref('all')
 const sortBy = ref('priority')
-const confirmingId = ref(null)
+const deleteTarget = ref(null)
+const deleting = ref(false)
 
 const owners = computed(() => {
   const values = new Set(ASSIGNEES)
@@ -76,20 +82,40 @@ async function changeStatus(task, status) {
   }
 }
 
-async function remove(task) {
-  if (confirmingId.value !== task.id) {
-    confirmingId.value = task.id
-    return
-  }
+function askRemove(task) {
+  deleteTarget.value = task
+}
+
+function cancelRemove() {
+  if (deleting.value) return
+  deleteTarget.value = null
+}
+
+function onEscape(event) {
+  if (event.key === 'Escape') cancelRemove()
+}
+
+watch(deleteTarget, (target) => {
+  if (target) window.addEventListener('keydown', onEscape)
+  else window.removeEventListener('keydown', onEscape)
+})
+
+onUnmounted(() => window.removeEventListener('keydown', onEscape))
+
+async function confirmRemove() {
+  if (!deleteTarget.value || deleting.value) return
+  const task = deleteTarget.value
+  deleting.value = true
   try {
     await removeTask(task.id)
-    tasks.value = tasks.value.filter((item) => item.id !== task.id)
+    bumpTasks()
     notify('任务已删除')
+    deleteTarget.value = null
   } catch (err) {
     console.error(err)
     notify('删除失败', 'err')
   } finally {
-    confirmingId.value = null
+    deleting.value = false
   }
 }
 </script>
@@ -148,9 +174,16 @@ async function remove(task) {
             </td>
             <td><span class="tag" :class="task.priority">{{ priorityLabel(task.priority) }}</span></td>
             <td>
-              <select :value="task.status" class="select" aria-label="更改状态" @change="changeStatus(task, $event.target.value)">
+              <select
+                v-if="canChangeStatus"
+                :value="task.status"
+                class="select"
+                aria-label="更改状态"
+                @change="changeStatus(task, $event.target.value)"
+              >
                 <option v-for="item in STATUSES" :key="item.value" :value="item.value">{{ item.label }}</option>
               </select>
+              <span v-else class="tag" :class="task.status">{{ statusLabel(task.status) }}</span>
             </td>
             <td>
               <span class="person">
@@ -164,9 +197,9 @@ async function remove(task) {
             </td>
             <td>
               <div class="actions">
-                <button class="btn tiny" type="button" @click="openEdit(task)">编辑</button>
-                <button class="btn tiny danger" type="button" @click="remove(task)">
-                  {{ confirmingId === task.id ? '确认删除' : '删除' }}
+                <button v-if="canEdit" class="btn tiny" type="button" @click="openEdit(task)">编辑</button>
+                <button v-if="canDelete" class="btn tiny danger" type="button" @click="askRemove(task)">
+                  删除
                 </button>
               </div>
             </td>
@@ -175,4 +208,34 @@ async function remove(task) {
       </table>
     </div>
   </section>
+
+  <teleport to="body">
+    <transition name="fade">
+      <div
+        v-if="deleteTarget"
+        class="confirm-layer"
+        role="presentation"
+      >
+        <div class="mask" aria-hidden="true" @click="cancelRemove" />
+        <div
+          class="confirm-dialog"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="delete-dialog-title"
+          aria-describedby="delete-dialog-desc"
+        >
+          <h3 id="delete-dialog-title">确认删除任务？</h3>
+          <p id="delete-dialog-desc" class="muted">
+            将永久删除「<strong>{{ deleteTarget.title }}</strong>」，此操作不可恢复。
+          </p>
+          <div class="confirm-actions">
+            <button class="btn" type="button" :disabled="deleting" @click="cancelRemove">取消</button>
+            <button class="btn danger" type="button" :disabled="deleting" @click="confirmRemove">
+              {{ deleting ? '删除中...' : '确认删除' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </transition>
+  </teleport>
 </template>

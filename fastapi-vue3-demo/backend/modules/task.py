@@ -1,4 +1,4 @@
-from sqlalchemy import String, Boolean, Integer
+from sqlalchemy import Boolean, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 from backend.database import Base
 
@@ -14,3 +14,5 @@ class TaskModel(Base):
     assignee: Mapped[str] = mapped_column(String(50), default="未分配")
     department: Mapped[str] = mapped_column(String(50), default="综合部")
     due_date: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    created_by_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
+    assignee_user_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)

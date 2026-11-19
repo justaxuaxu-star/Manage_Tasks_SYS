@@ -3,6 +3,9 @@ import { computed, ref } from 'vue'
 import { updateTask } from '../api/tasks'
 import { useTasks } from '../composables/useTasks'
 import { notify, openEdit } from '../store'
+import { hasPermission } from '../stores/auth'
+
+const canDrag = hasPermission('task:change_status')
 import {
   STATUSES,
   avatarColor,
@@ -31,6 +34,10 @@ const columns = computed(() => {
 })
 
 function onDragStart(event, task) {
+  if (!canDrag) {
+    event.preventDefault()
+    return
+  }
   draggingId.value = task.id
   event.dataTransfer.effectAllowed = 'move'
   event.dataTransfer.setData('text/plain', String(task.id))
@@ -94,7 +101,7 @@ async function onDrop(status) {
           :key="task.id"
           class="card"
           :class="{ dragging: draggingId === task.id }"
-          draggable="true"
+          :draggable="canDrag"
           @dragstart="onDragStart($event, task)"
           @dragend="onDragEnd"
         >

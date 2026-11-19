@@ -1,9 +1,5 @@
-import axios from 'axios'
+import http from './http'
 import { normalizeTask } from '../taskMeta'
-
-const http = axios.create({
-  baseURL: 'http://localhost:8000',
-})
 
 export async function listTasks() {
   const { data } = await http.get('/tasks')

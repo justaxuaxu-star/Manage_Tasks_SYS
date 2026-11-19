@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { useTasks } from '../composables/useTasks'
 import { openCreate, openEdit } from '../store'
+import { hasPermission } from '../stores/auth'
 import {
   formatDue,
   isDueSoon,
@@ -81,7 +82,7 @@ const departments = computed(() => {
         <div class="meter" aria-hidden="true"><i :style="{ width: `${rate}%` }"></i></div>
         <p class="muted">完成率 {{ rate }}%，已交付 {{ done }} / {{ total }}</p>
       </div>
-      <button class="btn primary" type="button" @click="openCreate">安排新任务</button>
+      <button v-if="hasPermission('task:create')" class="btn primary" type="button" @click="openCreate">安排新任务</button>
     </section>
 
     <section class="stats">

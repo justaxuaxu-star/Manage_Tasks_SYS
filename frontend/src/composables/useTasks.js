@@ -14,7 +14,15 @@ export function useTasks() {
       tasks.value = await listTasks()
     } catch (err) {
       console.error(err)
-      error.value = '无法连接任务服务。请确认后端已在 8000 端口启动。'
+      const status = err.response?.status
+      const baseURL = err.config?.baseURL || 'http://localhost:8001'
+      if (status === 404) {
+        error.value = `接口返回 404，${baseURL} 上可能不是本任务系统后端。请用 8001 端口启动：uvicorn backend.main:app --reload --port 8001`
+      } else if (err.code === 'ERR_NETWORK' || !err.response) {
+        error.value = `无法连接任务服务。请确认已在 ${baseURL} 启动后端（默认 8001 端口）。`
+      } else {
+        error.value = `任务服务异常（HTTP ${status}）。请检查后端日志。`
+      }
       notify('任务数据加载失败', 'err')
     } finally {
       loading.value = false
