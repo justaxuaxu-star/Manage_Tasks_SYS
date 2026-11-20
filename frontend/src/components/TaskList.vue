@@ -1,6 +1,6 @@
 <script setup>
 import { computed, onUnmounted, ref, watch } from 'vue'
-import { removeTask, updateTask } from '../api/tasks'
+import { getStatusTransitions, removeTask, taskApiError, updateTask } from '../api/tasks'
 import { useTasks } from '../composables/useTasks'
 import { bumpTasks, notify, openEdit } from '../store'
 import { hasPermission } from '../stores/auth'
@@ -32,6 +32,7 @@ const ownerFilter = ref('all')
 const sortBy = ref('priority')
 const deleteTarget = ref(null)
 const deleting = ref(false)
+const transitionsCache = ref(new Map())
 
 const owners = computed(() => {
   const values = new Set(ASSIGNEES)
@@ -68,17 +69,38 @@ function clearFilters() {
   ownerFilter.value = 'all'
 }
 
+async function ensureTransitions(task) {
+  if (transitionsCache.value.has(task.id)) return
+  try {
+    const data = await getStatusTransitions(task.id)
+    transitionsCache.value.set(
+      task.id,
+      new Set([task.status, ...(data.allowed || []).map((item) => item.value)]),
+    )
+  } catch (err) {
+    console.error(err)
+  }
+}
+
+function statusOptions(task) {
+  const allowed = transitionsCache.value.get(task.id)
+  if (!allowed) return STATUSES
+  return STATUSES.filter((item) => allowed.has(item.value))
+}
+
 async function changeStatus(task, status) {
+  if (task.status === status) return
   const previous = { ...task }
   task.status = status
   task.completed = status === 'completed'
   try {
     await updateTask(task.id, toPayload(task))
+    transitionsCache.value.delete(task.id)
     notify(`已更新为${statusLabel(status)}`)
   } catch (err) {
     console.error(err)
     Object.assign(task, previous)
-    notify('状态更新失败', 'err')
+    notify(taskApiError(err, '状态更新失败'), 'err')
   }
 }
 
@@ -179,9 +201,12 @@ async function confirmRemove() {
                 :value="task.status"
                 class="select"
                 aria-label="更改状态"
+                @focus="ensureTransitions(task)"
                 @change="changeStatus(task, $event.target.value)"
               >
-                <option v-for="item in STATUSES" :key="item.value" :value="item.value">{{ item.label }}</option>
+                <option v-for="item in statusOptions(task)" :key="item.value" :value="item.value">
+                  {{ item.label }}
+                </option>
               </select>
               <span v-else class="tag" :class="task.status">{{ statusLabel(task.status) }}</span>
             </td>

@@ -14,7 +14,7 @@ from backend.seed import seed_tasks
 from backend.seed_rbac import seed_rbac
 
 # noqa: F401 - register models on metadata
-from backend.modules import rbac, task, user  # noqa: F401
+from backend.modules import rbac, task, task_status_history, user  # noqa: F401
 
 
 @asynccontextmanager
@@ -26,7 +26,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="Task Manager API", version="1.2.0", lifespan=lifespan)
+app = FastAPI(title="Task Manager API", version="1.3.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

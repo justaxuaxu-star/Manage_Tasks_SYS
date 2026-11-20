@@ -19,3 +19,20 @@ export async function updateTask(id, payload) {
 export async function removeTask(id) {
   await http.delete(`/tasks/${id}`)
 }
+
+export async function getStatusTransitions(taskId) {
+  const { data } = await http.get(`/tasks/${taskId}/status-transitions`)
+  return data
+}
+
+export async function getStatusHistory(taskId) {
+  const { data } = await http.get(`/tasks/${taskId}/status-history`)
+  return data
+}
+
+export function taskApiError(err, fallback = '操作失败') {
+  const detail = err.response?.data?.detail
+  if (typeof detail === 'string') return detail
+  if (Array.isArray(detail)) return detail.map((d) => d.msg || String(d)).join('；')
+  return fallback
+}

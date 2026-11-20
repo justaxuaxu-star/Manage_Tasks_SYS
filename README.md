@@ -138,8 +138,12 @@ npm run dev
 | `GET` | `/tasks` | `task:read`（成员仅能看本人相关或同部门；`task:read_all` 可看全部） |
 | `GET` | `/tasks/{id}` | `task:read` + 数据范围 |
 | `POST` | `/tasks` | `task:create` |
-| `PUT` | `/tasks/{id}` | `task:update`（改负责人需 `task:assign`） |
+| `PUT` | `/tasks/{id}` | `task:update`（改负责人需 `task:assign`；改状态走状态机） |
 | `DELETE` | `/tasks/{id}` | `task:delete` |
+| `GET` | `/tasks/{id}/status-transitions` | `task:read`（返回当前可变更的目标状态） |
+| `GET` | `/tasks/{id}/status-history` | `task:read`（状态流转审计记录） |
+
+**任务状态机（成员默认）**：`待处理 → 进行中 → 待验收 → 已完成`，不可跳步。拥有 `task:read_all` 或管理员角色可驳回、重开（如从待验收退回进行中）。非法变更返回 HTTP `422`。
 
 ### 用户与角色（管理端）
 

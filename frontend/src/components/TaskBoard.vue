@@ -1,6 +1,6 @@
 <script setup>
 import { computed, ref } from 'vue'
-import { updateTask } from '../api/tasks'
+import { taskApiError, updateTask } from '../api/tasks'
 import { useTasks } from '../composables/useTasks'
 import { notify, openEdit } from '../store'
 import { hasPermission } from '../stores/auth'
@@ -68,7 +68,7 @@ async function onDrop(status) {
   } catch (err) {
     console.error(err)
     Object.assign(task, previous)
-    notify('移动失败', 'err')
+    notify(taskApiError(err, '不允许移动到该阶段'), 'err')
   }
 }
 </script>

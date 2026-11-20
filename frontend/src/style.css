@@ -998,6 +998,46 @@ th {
   gap: 8px;
 }
 
+.status-history {
+  margin: 4px 0 16px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-glass);
+}
+
+.status-history h3 {
+  margin-bottom: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.status-history ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.status-history li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+}
+
+.history-main {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.history-meta {
+  font-size: 11px;
+}
+
 .empty,
 .error-box,
 .skeleton {

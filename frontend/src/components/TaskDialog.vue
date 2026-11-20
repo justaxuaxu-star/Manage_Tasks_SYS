@@ -1,8 +1,15 @@
 <script setup>
-import { onMounted, onUnmounted, reactive, ref, watch } from 'vue'
-import { createTask, removeTask, updateTask } from '../api/tasks'
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
+import {
+  createTask,
+  getStatusHistory,
+  getStatusTransitions,
+  removeTask,
+  taskApiError,
+  updateTask,
+} from '../api/tasks'
 import { bumpTasks, closeDrawer, notify, store } from '../store'
-import { ASSIGNEES, DEPARTMENTS, PRIORITIES, STATUSES, toPayload } from '../taskMeta'
+import { ASSIGNEES, DEPARTMENTS, PRIORITIES, STATUSES, statusLabel, toPayload } from '../taskMeta'
 import { hasPermission } from '../stores/auth'
 
 const canDelete = hasPermission('task:delete')
@@ -11,6 +18,25 @@ const saving = ref(false)
 const confirming = ref(false)
 const formError = ref('')
 const form = reactive(blankForm())
+const allowedStatuses = ref([])
+const statusHistory = ref([])
+
+const statusOptions = computed(() => {
+  if (!store.editing) return STATUSES
+  const allowed = new Set(allowedStatuses.value.map((item) => item.value))
+  allowed.add(form.status)
+  return STATUSES.filter((item) => allowed.has(item.value))
+})
+
+function historyFromLabel(code) {
+  if (!code) return '（新建）'
+  return statusLabel(code)
+}
+
+function formatHistoryTime(iso) {
+  if (!iso) return ''
+  return new Date(iso).toLocaleString('zh-CN', { hour12: false })
+}
 
 function blankForm() {
   return {
@@ -33,8 +59,12 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 
 watch(
   () => store.drawerOpen,
-  (open) => {
-    if (!open) return
+  async (open) => {
+    if (!open) {
+      allowedStatuses.value = []
+      statusHistory.value = []
+      return
+    }
     const task = store.editing
     Object.assign(form, task ? {
       title: task.title || '',
@@ -47,6 +77,20 @@ watch(
     } : blankForm())
     formError.value = ''
     confirming.value = false
+    if (task?.id) {
+      try {
+        const [transitions, history] = await Promise.all([
+          getStatusTransitions(task.id),
+          getStatusHistory(task.id),
+        ])
+        allowedStatuses.value = transitions.allowed || []
+        statusHistory.value = history || []
+      } catch (err) {
+        console.error(err)
+        allowedStatuses.value = []
+        statusHistory.value = []
+      }
+    }
   },
 )
 
@@ -69,7 +113,8 @@ async function submit() {
     closeDrawer()
   } catch (err) {
     console.error(err)
-    notify('保存失败，请检查后端服务', 'err')
+    formError.value = taskApiError(err, '保存失败，请检查后端服务')
+    notify(formError.value, 'err')
   } finally {
     saving.value = false
   }
@@ -121,7 +166,7 @@ async function remove() {
           <label class="field">
             <span>状态</span>
             <select v-model="form.status">
-              <option v-for="item in STATUSES" :key="item.value" :value="item.value">{{ item.label }}</option>
+              <option v-for="item in statusOptions" :key="item.value" :value="item.value">{{ item.label }}</option>
             </select>
           </label>
           <label class="field">
@@ -150,6 +195,19 @@ async function remove() {
           <span>截止日期</span>
           <input v-model="form.due_date" type="date" />
         </label>
+        <section v-if="store.editing && statusHistory.length" class="status-history">
+          <h3>状态流转记录</h3>
+          <ul>
+            <li v-for="item in statusHistory" :key="item.id">
+              <span class="history-main">
+                {{ historyFromLabel(item.from_status) }} → {{ historyFromLabel(item.to_status) }}
+              </span>
+              <span class="history-meta muted">
+                {{ item.changed_by_name || '系统' }} · {{ formatHistoryTime(item.created_at) }}
+              </span>
+            </li>
+          </ul>
+        </section>
         <p v-if="formError" class="form-error">{{ formError }}</p>
         <button class="btn primary" type="submit" :disabled="saving">
           {{ saving ? '保存中...' : '保存任务' }}

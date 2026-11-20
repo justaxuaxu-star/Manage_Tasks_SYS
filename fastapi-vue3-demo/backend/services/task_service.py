@@ -5,6 +5,9 @@ from backend.modules.task import TaskModel
 from backend.modules.user import UserModel
 from backend.schemas.task import Task
 from backend.services import rbac_service
+from backend.services import task_workflow
+from backend.services.task_status_history_service import record_status_change
+from backend.services.workflow_errors import WorkflowError
 
 STATUSES = {"pending", "in_progress", "review", "completed"}
 PRIORITIES = {"low", "medium", "high", "urgent"}
@@ -69,6 +72,8 @@ def create_task(db: Session, task: Task, user: UserModel) -> TaskModel:
         data["assignee_user_id"] = user.id
     row = TaskModel(**data)
     db.add(row)
+    db.flush()
+    record_status_change(db, task_id=row.id, from_status=None, to_status=row.status, user=user)
     db.commit()
     db.refresh(row)
     return row
@@ -84,9 +89,22 @@ def update_task(db: Session, task_id: int, task: Task, user: UserModel) -> TaskM
         if not rbac_service.has_permission(user, "task:assign"):
             data["assignee_user_id"] = row.assignee_user_id
             data["assignee"] = row.assignee
+
+    old_status = row.status
+    new_status = data.get("status", old_status)
+    if old_status != new_status:
+        if not rbac_service.has_permission(user, "task:change_status"):
+            raise WorkflowError("无权变更任务状态")
+        if not task_workflow.can_transition(old_status, new_status, user):
+            raise WorkflowError(task_workflow.transition_error_message(old_status, new_status))
+
     row.created_by_id = row.created_by_id or user.id
     for key, value in data.items():
         setattr(row, key, value)
+
+    if old_status != new_status:
+        record_status_change(db, task_id=row.id, from_status=old_status, to_status=new_status, user=user)
+
     db.commit()
     db.refresh(row)
     return row
